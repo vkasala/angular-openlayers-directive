@@ -510,6 +510,16 @@ angular.module('openlayers-directive')
                     view.rotation = defaults.view.rotation;
                 }
 
+                // vkasala added
+                if (!view.resolutions) {
+                    view.resolutions = defaults.view.resolutions;
+                }
+
+                // vkasala added
+                if (!view.extent) {
+                    view.extent = defaults.view.extent;
+                }
+
                 var mapView = createView(view);
                 map.setView(mapView);
 
@@ -1157,11 +1167,23 @@ angular.module('openlayers-directive').factory('olHelpers', ["$q", "$log", "$htt
         createView: function(view) {
             var projection = createProjection(view);
 
-            return new ol.View({
+            var defaultViewProperties = {
                 projection: projection,
                 maxZoom: view.maxZoom,
-                minZoom: view.minZoom,
-            });
+                minZoom: view.minZoom
+            };
+
+            if (isDefined(view.extent)) {
+                defaultViewProperties =
+                    angular.extend(defaultViewProperties, { extent: view.extent });
+            }
+
+            if (isDefined(view.resolutions)) {
+                defaultViewProperties =
+                    angular.extend(defaultViewProperties, { resolutions: view.resolutions });
+            }
+
+            return new ol.View(defaultViewProperties);
         },
 
         // Determine if a reference is defined and not null
@@ -1468,7 +1490,9 @@ angular.module('openlayers-directive').factory('olMapDefaults', ["$q", "olHelper
                 minZoom: undefined,
                 maxZoom: undefined,
                 rotation: 0,
-                extent: undefined
+                extent: undefined,
+                // Vkasala added
+                resolutions: undefined
             },
             center: {
                 lat: 0,

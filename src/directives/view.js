@@ -31,6 +31,16 @@ angular.module('openlayers-directive')
                     view.rotation = defaults.view.rotation;
                 }
 
+                // vkasala added
+                if (!view.resolutions) {
+                    view.resolutions = defaults.view.resolutions;
+                }
+
+                // vkasala added
+                if (!view.extent) {
+                    view.extent = defaults.view.extent;
+                }
+
                 var mapView = createView(view);
                 map.setView(mapView);
 
