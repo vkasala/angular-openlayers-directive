@@ -37,7 +37,9 @@ angular.module('openlayers-directive').factory('olMapDefaults', function($q, olH
                 minZoom: undefined,
                 maxZoom: undefined,
                 rotation: 0,
-                extent: undefined
+                extent: undefined,
+                // Vkasala added
+                resolutions: undefined
             },
             center: {
                 lat: 0,
