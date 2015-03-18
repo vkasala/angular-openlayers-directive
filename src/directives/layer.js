@@ -18,13 +18,17 @@ angular.module('openlayers-directive').directive('olLayer', function($log, $q, o
             var isBoolean   = olHelpers.isBoolean;
             var addLayerBeforeMarkers = olHelpers.addLayerBeforeMarkers;
             var isNumber    = olHelpers.isNumber;
+            var insertLayer = olHelpers.insertLayer;
+            var removeLayer = olHelpers.removeLayer;
 
             olScope.getMap().then(function(map) {
                 var projection = map.getView().getProjection();
                 var defaults = olMapDefaults.setDefaults(olScope);
+                var layerCollection = map.getLayers();
                 var olLayer;
 
                 scope.$on('$destroy', function() {
+                    removeLayer(layerCollection, olLayer.index);
                     map.removeLayer(olLayer);
                 });
 
@@ -41,12 +45,12 @@ angular.module('openlayers-directive').directive('olLayer', function($log, $q, o
                         if (detectLayerType(l) === 'Vector') {
                             setVectorLayerEvents(defaults.events, map, scope, attrs.name);
                         }
-                        addLayerBeforeMarkers(map.getLayers(), olLayer);
+                        addLayerBeforeMarkers(layerCollection, olLayer);
                     }
                     return;
                 }
 
-                scope.$watch('properties', function(properties, oldProperties) {
+                scope.$watchCollection('properties', function(properties, oldProperties) {
                     if (!isDefined(properties.source) || !isDefined(properties.source.type)) {
                         return;
                     }
@@ -64,7 +68,11 @@ angular.module('openlayers-directive').directive('olLayer', function($log, $q, o
                     var style;
                     if (!isDefined(olLayer)) {
                         olLayer = createLayer(properties, projection);
-                        addLayerBeforeMarkers(map.getLayers(), olLayer);
+                        if (isDefined(properties.index)) {
+                            insertLayer(layerCollection, properties.index, olLayer);
+                        } else {
+                            addLayerBeforeMarkers(layerCollection, olLayer);
+                        }
 
                         if (detectLayerType(properties) === 'Vector') {
                             setVectorLayerEvents(defaults.events, map, scope, properties.name);
@@ -78,6 +86,10 @@ angular.module('openlayers-directive').directive('olLayer', function($log, $q, o
                             olLayer.setOpacity(properties.opacity);
                         }
 
+                        if (angular.isArray(properties.extent)) {
+                            olLayer.setExtent(properties.extent);
+                        }
+
                         if (properties.style) {
                             if (!angular.isFunction(properties.style)) {
                                 style = createStyle(properties.style);
@@ -88,24 +100,26 @@ angular.module('openlayers-directive').directive('olLayer', function($log, $q, o
                         }
 
                     } else {
-                        if (isDefined(oldProperties) && !equals(properties, oldProperties)) {
+
+                        if (isDefined(oldProperties) &&
+                           !(equals(properties, oldProperties) && equals(properties.style, oldProperties.style))) {
+
                             if (!equals(properties.source, oldProperties.source)) {
-                                var layerCollection = map.getLayers();
+                                var idx = olLayer.index;
+                                layerCollection.setAt(idx, null);
+                                olLayer = createLayer(properties, projection);
+                                if (isDefined(olLayer)) {
+                                    insertLayer(layerCollection, idx, olLayer);
 
-                                for (var j = 0; j < layerCollection.getLength(); j++) {
-                                    var l = layerCollection.item(j);
-                                    if (l === olLayer) {
-                                        layerCollection.removeAt(j);
-                                        olLayer = createLayer(properties, projection);
-                                        if (isDefined(olLayer)) {
-                                            layerCollection.insertAt(j, olLayer);
-
-                                            if (detectLayerType(properties) === 'Vector') {
-                                                setVectorLayerEvents(defaults.events, map, scope, properties.name);
-                                            }
-                                        }
+                                    if (detectLayerType(properties) === 'Vector') {
+                                        setVectorLayerEvents(defaults.events, map, scope, properties.name);
                                     }
                                 }
+                            }
+
+                            if (isDefined(properties.index) && properties.index !== olLayer.index) {
+                                removeLayer(layerCollection, olLayer.index);
+                                insertLayer(layerCollection, properties.index, olLayer);
                             }
 
                             if (isBoolean(properties.visible) && properties.visible !== oldProperties.visible) {

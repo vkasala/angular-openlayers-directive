@@ -92,6 +92,10 @@ angular.module('openlayers-directive').factory('olHelpers', function($q, $log, $
             icon = new ol.style.Icon(style.icon);
         }
 
+        if (style.image) {
+            icon = style.image;
+        }
+
         return new ol.style.Style({
             fill: fill,
             stroke: stroke,
@@ -154,15 +158,34 @@ angular.module('openlayers-directive').factory('olHelpers', function($q, $log, $
         var oSource;
 
         switch (source.type) {
+            case 'MapBox':
+                if (!source.mapId || !source.accessToken) {
+                    $log.error('[AngularJS - Openlayers] - MapBox layer requires the map id and the access token');
+                    return;
+                }
+                var url = 'http://api.tiles.mapbox.com/v4/' + source.mapId + '/{z}/{x}/{y}.png?access_token=' +
+                    source.accessToken;
+
+                var pixelRatio = window.devicePixelRatio;
+
+                if (pixelRatio > 1) {
+                    url = url.replace('.png', '@2x.png');
+                }
+
+                oSource = new ol.source.XYZ({
+                    url: url,
+                    tilePixelRatio: pixelRatio > 1 ? 2 : 1
+                });
+                break;
             case 'ImageWMS':
                 if (!source.url || !source.params) {
                     $log.error('[AngularJS - Openlayers] - ImageWMS Layer needs ' +
                                'valid server url and params properties');
                 }
                 oSource = new ol.source.ImageWMS({
-                  url: source.url,
-                  crossOrigin: source.crossOrigin ? source.crossOrigin : 'anonymous',
-                  params: source.params
+                    url: source.url,
+                    crossOrigin: (source.crossOrigin === undefined) ? 'anonymous' : source.crossOrigin,
+                    params: source.params
                 });
                 break;
 
@@ -171,9 +194,9 @@ angular.module('openlayers-directive').factory('olHelpers', function($q, $log, $
                     $log.error('[AngularJS - Openlayers] - TileWMS Layer needs valid url and params properties');
                 }
                 oSource = new ol.source.TileWMS({
-                  url: source.url,
-                  crossOrigin: source.crossOrigin ? source.crossOrigin : 'anonymous',
-                  params: source.params
+                    url: source.url,
+                    crossOrigin: (source.crossOrigin === undefined) ? 'anonymous' : source.crossOrigin,
+                    params: source.params
                 });
                 break;
             case 'OSM':
@@ -183,6 +206,7 @@ angular.module('openlayers-directive').factory('olHelpers', function($q, $log, $
                         attributions.unshift(new ol.Attribution({ html: source.attribution }));
                     }
                     oSource = new ol.source.OSM({
+                        crossOrigin: (source.crossOrigin === undefined) ? 'anonymous' : source.crossOrigin,
                         attributions: attributions
                     });
                 } else {
@@ -643,12 +667,50 @@ angular.module('openlayers-directive').factory('olHelpers', function($q, $log, $
 
             if (isDefined(markersIndex)) {
                 var markers = layers.item(markersIndex);
+                layer.index = markersIndex;
                 layers.setAt(markersIndex, layer);
+                markers.index = layers.getLength();
                 layers.push(markers);
             } else {
+                layer.index = layers.getLength();
                 layers.push(layer);
             }
 
+        },
+
+        removeLayer: function(layers, index) {
+            layers.removeAt(index);
+            for (var i = index; i < layers.getLength(); i++) {
+                var l = layers.item(i);
+                if (l === null) {
+                    layers.insertAt(i, null);
+                    break;
+                } else {
+                    l.index = i;
+                }
+            }
+        },
+
+        insertLayer: function(layers, index, layer) {
+            if (layers.getLength() < index) {
+                while (layers.getLength() < index) {
+                    layers.push(null);
+                }
+                layer.index = index;
+                layers.push(layer);
+            } else {
+                layer.index = index;
+                layers.insertAt(layer.index, layer);
+                for (var i = index + 1; i < layers.getLength(); i++) {
+                    var l = layers.item(i);
+                    if (l === null) {
+                        layers.removeAt(i);
+                        break;
+                    } else {
+                        l.index = i;
+                    }
+                }
+            }
         },
 
         createOverlay: function(element, pos) {
